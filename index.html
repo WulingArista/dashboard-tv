@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dashboard TV</title>
+
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#d71920">
+
+<style>
+body{ margin:0; font-family:'Segoe UI',Arial; background:radial-gradient(circle at top,#020617,#000); color:white; overflow:hidden; }
+.header{ position:relative; padding:18px 30px; display:flex; justify-content:space-between; align-items:center; background:linear-gradient(135deg,#d71920,#7f0000); box-shadow:0 0 40px rgba(215,25,32,.8); }
+.headerLeft{ display:flex; align-items:center; gap:18px; }
+.logoWuling{ height:55px; max-width:140px; object-fit:contain; animation:logoPulse 3s ease-in-out infinite; }
+@keyframes logoPulse{ 0%{transform:scale(1)} 50%{transform:scale(1.08);filter:brightness(1.3) drop-shadow(0 0 14px white)} 100%{transform:scale(1)} }
+.title{ font-size:34px; font-weight:700; letter-spacing:1px; text-transform:uppercase; }
+.subtitle{ font-size:14px; letter-spacing:2px; opacity:.85; }
+.timeBox{ text-align:right; }
+#tanggal{ font-size:16px; opacity:.9; }
+#jam{ font-size:24px; font-weight:bold; }
+.cards{ display:grid; grid-template-columns:repeat(7,1fr); gap:12px; padding:15px 25px; }
+.card{ background:rgba(255,255,255,.05); backdrop-filter:blur(12px); border-radius:16px; padding:15px; text-align:center; }
+.card h2{ margin:0; font-size:32px; }
+.tableWrap{ height:calc(100vh - 260px); margin:0 25px; border-radius:16px; overflow:hidden; }
+#tableScroll{ height:100%; overflow-y:auto; transform: translateZ(0); backface-visibility: hidden; will-change: scroll-position; }
+#tableScroll::-webkit-scrollbar { width: 6px; }
+#tableScroll::-webkit-scrollbar-track { background: transparent; }
+#tableScroll::-webkit-scrollbar-thumb { background: #334155; border-radius: 10px; }
+table{ width:100%; border-collapse:collapse; table-layout:auto; font-size:15px; }
+th,td{ padding:9px 10px; text-align:left; }
+thead th{ position:sticky; top:0; background:#111827; z-index:5; }
+td{ border-bottom:1px solid #1f2937; white-space:normal; overflow:visible; text-overflow:clip; word-break:break-word; overflow-wrap:anywhere; line-height:1.35; vertical-align:top; }
+tbody tr:nth-child(even) { background-color: rgba(255, 255, 255, 0.09); }
+tbody tr:nth-child(odd) { background-color: transparent; }
+tbody tr:hover { background-color: rgba(255, 255, 255, 0.15); }
+.status{ padding:6px 12px; border-radius:999px; font-weight:bold; display:inline-block; }
+.PENDING{ background:#f59e0b; color:#111; } .CONFIRM{ background:#2563eb; } .CHECK\.IN{ background:#7c3aed; }
+.PROSES{ background:#111; border:1px solid #555; } .SELESAI{ background:#16a34a; } .CLOSED{ background:#64748b; }
+.CANCEL{ background:#ef4444; color:white; } .NO\.SHOW{ background:#f97316; color:white; }
+.jenis{ background:#1d4ed8; padding:4px 10px; border-radius:6px; font-size:14px; }
+.newRow{ background:#022c22!important; }
+.empty{ text-align:center; color:#94a3b8; font-size:22px; padding:30px; }
+.marquee{ position:fixed; bottom:0; width:100%; height:40px; background:#020617; overflow:hidden; display:flex; align-items:center; }
+.track{ display:flex; white-space:nowrap; animation:marqueeMove 25s linear infinite; }
+.track span{ padding-right:60px; background:linear-gradient(90deg,#22c55e,#4ade80,#22c55e); -webkit-background-clip:text; -webkit-text-fill-color:transparent; font-weight:700; }
+@keyframes marqueeMove{ from{transform:translateX(0)} to{transform:translateX(-50%)} }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="headerLeft">
+    <div>
+      <img class="logoWuling" src="https://upload.wikimedia.org/wikipedia/commons/thumb/f/f6/Wuling_Motors_logo.svg/512px-Wuling_Motors_logo.svg.png" alt="Wuling">
+    </div>
+    <div>
+      <div class="title">WULING ARISTA LAMPUNG</div>
+      <div class="subtitle">APPOINTMENT CONTROL BOARD</div>
+    </div>
+  </div>
+  <div class="timeBox">
+    <div id="tanggal"></div>
+    <div id="jam"></div>
+  </div>
+</div>
+
+<div class="cards">
+  <div class="card"><h2 id="total">0</h2> Total</div>
+  <div class="card"><h2 id="cancel" style="color:#ef4444; text-shadow: 0 0 10px rgba(239,68,68,0.5);">0</h2> Cancel</div>
+  <div class="card"><h2 id="noshow" style="color:#f97316; text-shadow: 0 0 10px rgba(249,115,22,0.5);">0</h2> No Show</div>
+  <div class="card"><h2 id="checkin">0</h2> Check In</div>
+  <div class="card"><h2 id="proses">0</h2> Proses</div>
+  <div class="card"><h2 id="selesai">0</h2> Selesai</div>
+  <div class="card"><h2 id="closed">0</h2> Closed</div>
+</div>
+
+<div class="tableWrap">
+<div id="tableScroll">
+<table>
+<thead>
+<tr><th>Jam</th><th>Customer</th><th>No Polisi</th><th>Kendaraan</th><th>SA</th><th>Jenis Service</th><th>Status</th></tr>
+</thead>
+<tbody id="tbody"></tbody>
+</table>
+</div>
+</div>
+
+<div class="marquee"><div class="track" id="runningTrack"></div></div>
+
+<script>
+// --- REGISTER SERVICE WORKER UNTUK PWA ---
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('sw.js').catch(err => console.error(err));
+}
+
+let lastIds = [];
+
+function esc(v){
+  return String(v==null?'':v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;');
+}
+
+function updateClock(){
+  const n = new Date();
+  document.getElementById('jam').innerText = n.toLocaleTimeString('id-ID');
+  document.getElementById('tanggal').innerText = n.toLocaleDateString('id-ID',{ weekday:'long', day:'2-digit', month:'long', year:'numeric' });
+}
+
+function loadData(){
+  
+  // 👉 MASUKKAN URL WEB APP GOOGLE APPS SCRIPT ANDA DI SINI 👈
+  const scriptUrl = 'https://script.google.com/macros/s/AKfycbwQsPc_NAorLHptiN_v7NSID0IDl6qUwpS_N0a7Ld5xFCxVRfj0c8qZ_FByB3rqibzcCg/exec'; 
+
+  fetch(scriptUrl + '?action=data_tv')
+    .then(response => response.json())
+    .then(res => {
+      if(!res) return;
+      const list = res.data || [];
+      
+      document.getElementById('total').innerText = list.length;
+      document.getElementById('cancel').innerText = list.filter(r => String(r.status).toUpperCase() === 'CANCEL').length;
+      document.getElementById('noshow').innerText = list.filter(r => String(r.status).toUpperCase() === 'NO SHOW').length;
+      document.getElementById('checkin').innerText = list.filter(r => String(r.status).toUpperCase() === 'CHECK IN').length;
+      document.getElementById('proses').innerText = list.filter(r => String(r.status).toUpperCase() === 'PROSES').length;
+      document.getElementById('selesai').innerText = list.filter(r => String(r.status).toUpperCase() === 'SELESAI').length;
+      document.getElementById('closed').innerText = list.filter(r => String(r.status).toUpperCase() === 'CLOSED').length;
+
+      const tbody = document.getElementById('tbody');
+      tbody.innerHTML='';
+
+      let ids = [];
+      let run = [];
+
+      if(!list.length){
+        tbody.innerHTML = '<tr><td colspan="7" class="empty">Belum ada appointment hari ini.</td></tr>';
+        document.getElementById('runningTrack').innerHTML = '<span>Belum ada appointment hari ini</span><span>Belum ada appointment hari ini</span>';
+        return;
+      }
+
+      list.forEach(r=>{
+        const rawStatus = String(r.status || '').toUpperCase();
+        const id = (r.id || '') + r.nama + r.jam;
+        ids.push(id);
+
+        if(!['CANCEL', 'NO SHOW', 'SELESAI', 'CLOSED'].includes(rawStatus)){
+            run.push(esc(r.nama) + ' (' + esc(r.nopol) + ') - ' + esc(r.jam));
+        }
+
+        const cls = rawStatus.replace(/\\s+/g,'.');
+        const isBatal = ['CANCEL', 'NO SHOW'].includes(rawStatus);
+        const opacityStyle = isBatal ? 'opacity: 0.4;' : '';
+        const newRowStyle = !lastIds.includes(id) ? 'newRow' : '';
+
+        tbody.innerHTML +=
+          '<tr class="' + newRowStyle + '" style="' + opacityStyle + '">' +
+          '<td>' + esc(r.jam) + '</td>' +
+          '<td>' + esc(r.nama) + '</td>' +
+          '<td>' + esc(r.nopol) + '</td>' +
+          '<td>' + esc(r.model) + '</td>' +
+          '<td>' + esc(r.sa) + '</td>' +
+          '<td><span class="jenis">' + esc(r.jenis) + '</span></td>' +
+          '<td><span class="status ' + esc(cls) + '">' + esc(r.status) + '</span></td>' +
+          '</tr>';
+      });
+
+      const text = run.length > 0 ? run.join('  •  ') : 'Semua kendaraan selesai diproses atau dibatalkan.';
+      document.getElementById('runningTrack').innerHTML = '<span>' + text + '</span><span>' + text + '</span>';
+      lastIds = ids;
+    })
+    .catch(err => console.error('Gagal mengambil data:', err));
+}
+
+// MESIN AUTOSCROLL TV
+let isPaused = false;
+let scrollDirection = "down";
+let exactScroll = 0; 
+
+function autoScrollLoop(){
+  if (!isPaused) {
+    const el = document.getElementById('tableScroll');
+    if(el) {
+      const max = el.scrollHeight - el.clientHeight;
+      if(max > 0) {
+        if (el.scrollTop === 0 && exactScroll > 1) exactScroll = 0;
+        if (scrollDirection === "down") {
+          exactScroll += 0.3; 
+          el.scrollTop = exactScroll; 
+          if(el.scrollTop >= max - 2){ 
+            isPaused = true; scrollDirection = "up"; setTimeout(() => { isPaused = false; }, 1500); 
+          }
+        } else if (scrollDirection === "up") {
+          exactScroll -= 4; el.scrollTop = exactScroll; 
+          if(el.scrollTop <= 0) {
+            exactScroll = 0; el.scrollTop = 0; isPaused = true; scrollDirection = "down"; setTimeout(() => { isPaused = false; }, 3000); 
+          }
+        }
+      }
+    }
+  }
+  requestAnimationFrame(autoScrollLoop); 
+}
+
+setInterval(updateClock,1000);
+setInterval(loadData,15000);
+requestAnimationFrame(autoScrollLoop);
+
+updateClock();
+loadData();
+</script>
+</body>
+</html>
