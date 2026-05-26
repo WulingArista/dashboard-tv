@@ -52,7 +52,7 @@ tbody tr:hover { background-color: rgba(255, 255, 255, 0.15); }
 <div class="header">
   <div class="headerLeft">
     <div>
-      <img class="logoWuling" src="https://upload.wikimedia.org/wikipedia/commons/thumb/f/f6/Wuling_Motors_logo.svg/512px-Wuling_Motors_logo.svg.png" alt="Wuling">
+      <img class="logoWuling" id="logoWuling" src="" alt="Wuling">
     </div>
     <div>
       <div class="title">WULING ARISTA LAMPUNG</div>
@@ -114,8 +114,18 @@ function loadData(){
   fetch(scriptUrl + '?action=data_tv')
     .then(response => response.json())
     .then(res => {
-      if(!res) return;
-      const list = res.data || [];
+    if(!res) return;
+
+    // --- KODE BARU: UPDATE LOGO DINAMIS DARI GAS ---
+    // Pastikan skrip GAS API Anda mengembalikan URL logo di properti 'logo'
+    if (res.logo) {
+        document.getElementById('logoWuling').src = res.logo;
+    }
+    // ----------------------------------------------
+
+    const list = res.data || [];
+    // ... (sisa kode Javascript yang ada di bawahnya tetap biarkan) ...
+  })
       
       document.getElementById('total').innerText = list.length;
       document.getElementById('cancel').innerText = list.filter(r => String(r.status).toUpperCase() === 'CANCEL').length;
