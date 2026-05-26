@@ -108,25 +108,15 @@ function updateClock(){
 
 function loadData(){
   
-  // URL API BARU (Hanya ambil data, bukan ambil halaman HTML)
+  // URL API WEB APP ANDA
   const scriptUrl = 'https://script.google.com/macros/s/AKfycbwQsPc_NAorLHptiN_v7NSID0IDl6qUwpS_N0a7Ld5xFCxVRfj0c8qZ_FByB3rqibzcCg/exec'; 
 
-  // Memanggil pintu data_tv yang baru saja kita buat
   fetch(scriptUrl + '?action=data_tv', { method: 'GET', redirect: 'follow' })
     .then(response => response.json())
     .then(res => {
-    if(!res) return;
+      if(!res) return;
 
-    // --- KODE BARU: UPDATE LOGO DINAMIS DARI GAS ---
-    // Pastikan skrip GAS API Anda mengembalikan URL logo di properti 'logo'
-    if (res.logo) {
-        document.getElementById('logoWuling').src = res.logo;
-    }
-    // ----------------------------------------------
-
-    const list = res.data || [];
-    // ... (sisa kode Javascript yang ada di bawahnya tetap biarkan) ...
-  })
+      const list = res.data || [];
       
       document.getElementById('total').innerText = list.length;
       document.getElementById('cancel').innerText = list.filter(r => String(r.status).toUpperCase() === 'CANCEL').length;
