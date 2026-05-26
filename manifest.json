@@ -8,12 +8,12 @@
   "orientation": "landscape",
   "icons": [
     {
-      "src": "MASUKKAN_URL_POSTIMG_ANDA_DI_SINI.png", // Ganti di sini
+      "src": "logo-wuling.png", // Ganti di sini
       "sizes": "192x192",
       "type": "image/png"
     },
     {
-      "src": "MASUKKAN_URL_POSTIMG_ANDA_DI_SINI.png", // Ganti di sini
+      "src": "logo-wuling.png", // Ganti di sini
       "sizes": "512x512",
       "type": "image/png"
     }
