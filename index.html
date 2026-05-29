@@ -24,7 +24,7 @@ body{ margin:0; font-family:'Segoe UI',Arial; background:radial-gradient(circle 
 .card h2{ margin:0; font-size:32px; }
 .tableWrap{ height:calc(100vh - 260px); margin:0 25px; border-radius:16px; overflow:hidden; }
 
-/* KUNCI SMOOTH SCROLL DI HP */
+/* LAYOUT TABEL PERANGKAT UTAMA */
 #tableScroll{ height:100%; overflow-y:auto; transform: translateZ(0); backface-visibility: hidden; will-change: scroll-position; -webkit-overflow-scrolling: touch; }
 #tableScroll::-webkit-scrollbar { width: 6px; }
 #tableScroll::-webkit-scrollbar-track { background: transparent; }
@@ -49,13 +49,13 @@ tbody tr:hover { background-color: rgba(255, 255, 255, 0.15); }
 .track span{ padding-right:60px; background:linear-gradient(90deg,#22c55e,#4ade80,#22c55e); -webkit-background-clip:text; -webkit-text-fill-color:transparent; font-weight:700; }
 @keyframes marqueeMove{ from{transform:translateX(0)} to{transform:translateX(-50%)} }
 
-/* --- RESPONSIVE UNTUK HP & TABLET --- */
+/* --- OPTIMASI RESPONSIVE LAYAR HP (DIPERLEGA) --- */
 @media(max-width: 900px) {
   .header { flex-direction: column; text-align: center; gap: 10px; padding: 15px; }
   .headerLeft { flex-direction: column; }
   .timeBox { text-align: center; }
   .cards { grid-template-columns: repeat(2, 1fr); gap: 8px; padding: 10px 15px; }
-  .tableWrap { margin: 0 15px; height: calc(100vh - 380px); }
+  .tableWrap { margin: 0 15px; height: calc(100vh - 240px); } /* Diperpanjang agar bisa di-scroll manual */
   th, td { padding: 8px 6px; font-size: 12px; }
   .logoWuling { height: 40px; }
   .title { font-size: 22px; }
@@ -124,7 +124,6 @@ function updateClock(){
 }
 
 function loadData(){
-  // URL API WEB APP ANDA
   const scriptUrl = 'https://script.google.com/macros/s/AKfycbwQsPc_NAorLHptiN_v7NSID0IDl6qUwpS_N0a7Ld5xFCxVRfj0c8qZ_FByB3rqibzcCg/exec'; 
 
   fetch(scriptUrl + '?action=data_tv', { method: 'GET', redirect: 'follow' })
@@ -162,7 +161,7 @@ function loadData(){
             run.push(esc(r.nama) + ' (' + esc(r.nopol) + ') - ' + esc(r.jam));
         }
 
-        const cls = rawStatus.replace(/\\s+/g,'.');
+        const cls = rawStatus.replace(/\s+/g,'.');
         const isBatal = ['CANCEL', 'NO SHOW'].includes(rawStatus);
         const opacityStyle = isBatal ? 'opacity: 0.4;' : '';
         const newRowStyle = !lastIds.includes(id) ? 'newRow' : '';
@@ -186,54 +185,55 @@ function loadData(){
     .catch(err => console.error('Gagal mengambil data:', err));
 }
 
-// MESIN SMART SCROLL TV
+// ENGINE AUTOMATIC & MANUAL SMART SCROLL
 let isPaused = false;
 let scrollDirection = "down";
 let exactScroll = 0; 
-let touchTimeout;
+let touchTimeout = null;
 
-const tableEl = document.getElementById('tableScroll');
-
-// KODE BARU: Fungsi untuk menghentikan auto-scroll jika ada jari menyentuh layar
 function pauseScrollForManual() {
-  isPaused = true; // Berhenti otomatis
+  isPaused = true; 
   clearTimeout(touchTimeout);
   
-  // Lanjutkan kembali setelah 4 detik tidak disentuh
   touchTimeout = setTimeout(() => {
     isPaused = false;
-    exactScroll = tableEl.scrollTop; // Sinkronkan posisi agar tidak melompat
+    const el = document.getElementById('tableScroll');
+    if (el) exactScroll = el.scrollTop; 
   }, 4000); 
 }
 
-// Tangkap interaksi sentuhan di layar HP atau scroll dari Mouse
-tableEl.addEventListener('touchstart', pauseScrollForManual, {passive: true});
-tableEl.addEventListener('touchmove', pauseScrollForManual, {passive: true});
-tableEl.addEventListener('wheel', pauseScrollForManual, {passive: true});
-
 function autoScrollLoop(){
   if (!isPaused) {
-    if(tableEl) {
-      const max = tableEl.scrollHeight - tableEl.clientHeight;
+    const el = document.getElementById('tableScroll');
+    if(el) {
+      const max = el.scrollHeight - el.clientHeight;
       if(max > 0) {
-        if (tableEl.scrollTop === 0 && exactScroll > 1) exactScroll = 0;
+        if (el.scrollTop === 0 && exactScroll > 1) exactScroll = 0;
         
         if (scrollDirection === "down") {
           exactScroll += 0.3; 
-          tableEl.scrollTop = exactScroll; 
-          if(tableEl.scrollTop >= max - 2){ 
+          el.scrollTop = exactScroll; 
+          if(el.scrollTop >= max - 2){ 
             isPaused = true; scrollDirection = "up"; setTimeout(() => { isPaused = false; }, 1500); 
           }
         } else if (scrollDirection === "up") {
-          exactScroll -= 4; tableEl.scrollTop = exactScroll; 
-          if(tableEl.scrollTop <= 0) {
-            exactScroll = 0; tableEl.scrollTop = 0; isPaused = true; scrollDirection = "down"; setTimeout(() => { isPaused = false; }, 3000); 
+          exactScroll -= 4; el.scrollTop = exactScroll; 
+          if(el.scrollTop <= 0) {
+            exactScroll = 0; el.scrollTop = 0; isPaused = true; scrollDirection = "down"; setTimeout(() => { isPaused = false; }, 3000); 
           }
         }
       }
     }
   }
   requestAnimationFrame(autoScrollLoop); 
+}
+
+// Sistem Pengaman Aktivasi Event Listener (Mencegah Crash Script Utama)
+const tableEl = document.getElementById('tableScroll');
+if (tableEl) {
+  tableEl.addEventListener('touchstart', pauseScrollForManual, {passive: true});
+  tableEl.addEventListener('touchmove', pauseScrollForManual, {passive: true});
+  tableEl.addEventListener('wheel', pauseScrollForManual, {passive: true});
 }
 
 setInterval(updateClock,1000);
