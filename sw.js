@@ -5,8 +5,12 @@ self.addEventListener('install', (e) => {
 
 self.addEventListener('activate', (e) => {
   console.log('[Service Worker] Aktif');
+  e.waitUntil(clients.claim()); // Memaksa SW langsung mengambil alih
 });
 
 self.addEventListener('fetch', (e) => {
-  // Hanya bypass, tidak menyimpan cache data dinamis
+  // Memberitahu Chrome bahwa kita merespons jaringan, walau hanya bypass
+  e.respondWith(fetch(e.request).catch(() => {
+    console.log('Tidak ada koneksi internet');
+  }));
 });
