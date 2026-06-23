@@ -18,10 +18,14 @@ body{ margin:0; font-family:'Segoe UI',Arial; background:radial-gradient(circle 
 .logoWuling{ height:55px; max-width:140px; object-fit:contain; animation:logoPulse 3s ease-in-out infinite; }
 @keyframes logoPulse{ 0%{transform:scale(1)} 50%{transform:scale(1.08);filter:brightness(1.3) drop-shadow(0 0 14px white)} 100%{transform:scale(1)} }
 .title{ font-size:34px; font-weight:700; letter-spacing:1px; text-transform:uppercase; margin:0; line-height: 1.1; }
-.subtitle{ font-size:14px; letter-spacing:2px; opacity:.85; }
-.timeBox{ text-align:right; }
+.subtitle{ font-size:14px; letter-spacing:2px; opacity:.85; transition: color 0.3s; }
+.timeBox{ text-align:right; display:flex; flex-direction:column; align-items:flex-end; }
 #tanggal{ font-size:16px; opacity:.9; }
 #jam{ font-size:24px; font-weight:bold; }
+
+/* TOMBOL PREVIEW BESOK */
+#btnBesok { margin-bottom: 8px; background: #f59e0b; color: #111; border: none; padding: 6px 16px; border-radius: 8px; font-weight: 900; cursor: pointer; font-size: 13px; transition: all 0.2s; box-shadow: 0 4px 10px rgba(0,0,0,0.3); }
+#btnBesok:hover { transform: translateY(-2px); filter: brightness(1.1); }
 
 .cards{ display:grid; grid-template-columns:repeat(7,1fr); gap:12px; padding:15px 25px; flex-shrink: 0; }
 .card{ background:rgba(255,255,255,.05); backdrop-filter:blur(12px); border-radius:16px; padding:15px; text-align:center; }
@@ -66,6 +70,8 @@ tbody tr:hover { background-color: rgba(255, 255, 255, 0.15); }
   .title { font-size: 22px; }
   .card h2 { font-size: 24px; }
   .status, .jenis { font-size: 11px; padding: 4px 8px; }
+  .timeBox { flex-direction:row-reverse; justify-content:space-between; width:100%; align-items:center; margin-top:10px; }
+  #btnBesok { margin-bottom: 0; }
 }
 
 /* --- RESPONSIVE KHUSUS HP MENDATAR (LANDSCAPE) --- */
@@ -83,6 +89,7 @@ tbody tr:hover { background-color: rgba(255, 255, 255, 0.15); }
   th, td { padding: 4px 6px; font-size: 11px; }
   .marquee { height: 26px; }
   .track span { font-size: 11px; }
+  #btnBesok { padding: 4px 10px; font-size: 11px; }
 }
 </style>
 </head>
@@ -95,12 +102,15 @@ tbody tr:hover { background-color: rgba(255, 255, 255, 0.15); }
     </div>
     <div>
       <div class="title">WULING ARISTA LAMPUNG</div>
-      <div class="subtitle">APPOINTMENT CONTROL BOARD</div>
+      <div class="subtitle" id="tvSubtitle">APPOINTMENT CONTROL BOARD</div>
     </div>
   </div>
   <div class="timeBox">
-    <div id="tanggal"></div>
-    <div id="jam"></div>
+    <button id="btnBesok" onclick="toggleBesok()">📅 Preview Besok</button>
+    <div>
+      <div id="tanggal"></div>
+      <div id="jam"></div>
+    </div>
   </div>
 </div>
 
@@ -133,6 +143,8 @@ if ('serviceWorker' in navigator) {
 }
 
 let lastIds = [];
+let isViewingBesok = false; // Mode Preview Besok
+const scriptUrl = 'https://script.google.com/macros/s/AKfycbwQsPc_NAorLHptiN_v7NSID0IDl6qUwpS_N0a7Ld5xFCxVRfj0c8qZ_FByB3rqibzcCg/exec'; 
 
 function esc(v){
   return String(v==null?'':v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;');
@@ -144,14 +156,59 @@ function updateClock(){
   document.getElementById('tanggal').innerText = n.toLocaleDateString('id-ID',{ weekday:'long', day:'2-digit', month:'long', year:'numeric' });
 }
 
-function loadData(){
-  const scriptUrl = 'https://script.google.com/macros/s/AKfycbwQsPc_NAorLHptiN_v7NSID0IDl6qUwpS_N0a7Ld5xFCxVRfj0c8qZ_FByB3rqibzcCg/exec'; 
+function getBesokKey(){ 
+  const d = new Date(); 
+  d.setDate(d.getDate() + 1); 
+  const y = d.getFullYear(); 
+  const m = String(d.getMonth() + 1).padStart(2, '0'); 
+  const dd = String(d.getDate()).padStart(2, '0'); 
+  return y + '-' + m + '-' + dd; 
+}
 
-  fetch(scriptUrl + '?action=data_tv', { method: 'GET', redirect: 'follow' })
+function toggleBesok() {
+  isViewingBesok = !isViewingBesok;
+  const btn = document.getElementById('btnBesok');
+  const subtitle = document.getElementById('tvSubtitle');
+  const tbody = document.getElementById('tbody');
+  
+  if (isViewingBesok) {
+     btn.innerHTML = '⬅️ Kembali ke Hari Ini';
+     btn.style.background = '#3b82f6'; 
+     btn.style.color = '#fff';
+     subtitle.innerHTML = 'PREVIEW BOOKING H-1 (BESOK)';
+     subtitle.style.color = '#fde047'; 
+     tbody.innerHTML = '<tr><td colspan="7" class="empty">⏳ Memuat data besok...</td></tr>';
+  } else {
+     btn.innerHTML = '📅 Preview Besok';
+     btn.style.background = '#f59e0b'; 
+     btn.style.color = '#111';
+     subtitle.innerHTML = 'APPOINTMENT CONTROL BOARD';
+     subtitle.style.color = 'inherit';
+     tbody.innerHTML = '<tr><td colspan="7" class="empty">⏳ Memuat data hari ini...</td></tr>';
+     lastIds = []; 
+  }
+  
+  exactScroll = 0;
+  const el = document.getElementById('tableScroll');
+  if(el) el.scrollTop = 0;
+  loadData();
+}
+
+function loadData(){
+  let fetchUrl = scriptUrl + '?action=data_tv';
+  
+  // Jika mode besok aktif, arahkan ke API baru
+  if(isViewingBesok) {
+     fetchUrl = scriptUrl + '?action=data_tv_besok&date=' + getBesokKey();
+  }
+
+  fetch(fetchUrl, { method: 'GET', redirect: 'follow' })
     .then(response => response.json())
     .then(res => {
       if(!res) return;
-      const list = res.data || [];
+      
+      // Fleksibilitas baca data (mengakomodasi data_tv dan data_tv_besok)
+      const list = res.data || res || [];
       
       document.getElementById('total').innerText = list.length;
       document.getElementById('cancel').innerText = list.filter(r => String(r.status).toUpperCase() === 'CANCEL').length;
@@ -168,8 +225,12 @@ function loadData(){
       let run = [];
 
       if(!list.length){
-        tbody.innerHTML = '<tr><td colspan="7" class="empty">Belum ada appointment hari ini.</td></tr>';
-        document.getElementById('runningTrack').innerHTML = '<span>Belum ada appointment hari ini</span><span>Belum ada appointment hari ini</span>';
+        tbody.innerHTML = '<tr><td colspan="7" class="empty">Belum ada appointment ' + (isViewingBesok ? 'untuk besok.' : 'hari ini.') + '</td></tr>';
+        if(!isViewingBesok) {
+            document.getElementById('runningTrack').innerHTML = '<span>Belum ada appointment hari ini</span><span>Belum ada appointment hari ini</span>';
+        } else {
+            document.getElementById('runningTrack').innerHTML = '<span style="color:#fde047">Mode Preview H-1 Aktif</span><span style="color:#fde047">Mode Preview H-1 Aktif</span>';
+        }
         return;
       }
 
@@ -185,7 +246,7 @@ function loadData(){
         const cls = rawStatus.replace(/\s+/g,'.');
         const isBatal = ['CANCEL', 'NO SHOW'].includes(rawStatus);
         const opacityStyle = isBatal ? 'opacity: 0.4;' : '';
-        const newRowStyle = !lastIds.includes(id) ? 'newRow' : '';
+        const newRowStyle = (!isViewingBesok && !lastIds.includes(id)) ? 'newRow' : '';
 
         tbody.innerHTML +=
           '<tr class="' + newRowStyle + '" style="' + opacityStyle + '">' +
@@ -199,9 +260,13 @@ function loadData(){
           '</tr>';
       });
 
-      const text = run.length > 0 ? run.join('  •  ') : 'Semua kendaraan selesai diproses atau dibatalkan.';
-      document.getElementById('runningTrack').innerHTML = '<span>' + text + '</span><span>' + text + '</span>';
-      lastIds = ids;
+      if(!isViewingBesok) {
+         const text = run.length > 0 ? run.join('  •  ') : 'Semua kendaraan selesai diproses atau dibatalkan.';
+         document.getElementById('runningTrack').innerHTML = '<span>' + text + '</span><span>' + text + '</span>';
+         lastIds = ids;
+      } else {
+         document.getElementById('runningTrack').innerHTML = '<span style="color:#fde047">🛠️ MODE PREVIEW H-1 (BESOK) AKTIF 🛠️</span><span style="color:#fde047">🛠️ MODE PREVIEW H-1 (BESOK) AKTIF 🛠️</span>';
+      }
     })
     .catch(err => console.error('Gagal mengambil data:', err));
 }
