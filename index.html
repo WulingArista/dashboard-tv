@@ -210,36 +210,23 @@ if ('serviceWorker' in navigator) {
 // SISTEM SMART ROTATE (AUTO & MANUAL)
 // ==============================================
 let currentRotateState = parseInt(localStorage.getItem('tvRotateState')) || 0; 
-// 0 = Normal Landscape, 1 = Portrait Kanan (90deg), 2 = Portrait Kiri (-90deg)
 
 function applyRotation() {
   const wrapper = document.getElementById('tv-wrapper');
-  
-  // Jika perangkat secara alami sudah berbentuk Portrait (seperti HP berdiri)
   if (window.innerHeight > window.innerWidth) {
-     wrapper.style.width = '100vw';
-     wrapper.style.height = '100vh';
-     wrapper.style.transform = 'rotate(0deg)';
-     wrapper.classList.remove('is-portrait');
+     wrapper.style.width = '100vw'; wrapper.style.height = '100vh';
+     wrapper.style.transform = 'rotate(0deg)'; wrapper.classList.remove('is-portrait');
      return; 
   }
-
-  // Logika putaran manual
   if (currentRotateState === 1) {
-     wrapper.style.width = '100vh';
-     wrapper.style.height = '100vw';
-     wrapper.style.transform = 'rotate(90deg)';
-     wrapper.classList.add('is-portrait');
+     wrapper.style.width = '100vh'; wrapper.style.height = '100vw';
+     wrapper.style.transform = 'rotate(90deg)'; wrapper.classList.add('is-portrait');
   } else if (currentRotateState === 2) {
-     wrapper.style.width = '100vh';
-     wrapper.style.height = '100vw';
-     wrapper.style.transform = 'rotate(-90deg)';
-     wrapper.classList.add('is-portrait');
+     wrapper.style.width = '100vh'; wrapper.style.height = '100vw';
+     wrapper.style.transform = 'rotate(-90deg)'; wrapper.classList.add('is-portrait');
   } else {
-     wrapper.style.width = '100vw';
-     wrapper.style.height = '100vh';
-     wrapper.style.transform = 'rotate(0deg)';
-     wrapper.classList.remove('is-portrait');
+     wrapper.style.width = '100vw'; wrapper.style.height = '100vh';
+     wrapper.style.transform = 'rotate(0deg)'; wrapper.classList.remove('is-portrait');
   }
 }
 
@@ -248,7 +235,6 @@ function rotateScreen() {
   localStorage.setItem('tvRotateState', currentRotateState);
   applyRotation();
 }
-
 window.addEventListener('resize', applyRotation);
 
 // ==============================================
@@ -256,25 +242,31 @@ window.addEventListener('resize', applyRotation);
 // ==============================================
 let lastIds = [];
 let isViewingBesok = false; 
+let fetchCounter = 0; // KUNCI UTAMA ANTI-TABRAKAN DATA
 const scriptUrl = 'https://script.google.com/macros/s/AKfycbwQsPc_NAorLHptiN_v7NSID0IDl6qUwpS_N0a7Ld5xFCxVRfj0c8qZ_FByB3rqibzcCg/exec'; 
 
-function esc(v){
-  return String(v==null?'':v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;');
-}
+function esc(v){ return String(v==null?'':v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;'); }
 
 function updateClock(){
-  const n = new Date();
-  document.getElementById('jam').innerText = n.toLocaleTimeString('id-ID');
+  const n = new Date(); document.getElementById('jam').innerText = n.toLocaleTimeString('id-ID');
   document.getElementById('tanggal').innerText = n.toLocaleDateString('id-ID',{ weekday:'long', day:'2-digit', month:'long', year:'numeric' });
 }
 
 function getBesokKey(){ 
-  const d = new Date(); 
-  d.setDate(d.getDate() + 1); 
-  const y = d.getFullYear(); 
-  const m = String(d.getMonth() + 1).padStart(2, '0'); 
-  const dd = String(d.getDate()).padStart(2, '0'); 
+  const d = new Date(); d.setDate(d.getDate() + 1); 
+  const y = d.getFullYear(); const m = String(d.getMonth() + 1).padStart(2, '0'); const dd = String(d.getDate()).padStart(2, '0'); 
   return y + '-' + m + '-' + dd; 
+}
+
+// Fungsi untuk mengosongkan angka kartu saat Loading
+function resetCards() {
+  document.getElementById('total').innerText = '...';
+  document.getElementById('cancel').innerText = '...';
+  document.getElementById('noshow').innerText = '...';
+  document.getElementById('checkin').innerText = '...';
+  document.getElementById('proses').innerText = '...';
+  document.getElementById('selesai').innerText = '...';
+  document.getElementById('closed').innerText = '...';
 }
 
 function toggleBesok() {
@@ -283,19 +275,17 @@ function toggleBesok() {
   const subtitle = document.getElementById('tvSubtitle');
   const tbody = document.getElementById('tbody');
   
+  resetCards(); // Langsung kosongkan kartu saat diklik
+
   if (isViewingBesok) {
      btn.innerHTML = '⬅️ Kembali ke Hari Ini';
-     btn.style.background = '#3b82f6'; 
-     btn.style.color = '#fff';
-     subtitle.innerHTML = 'PREVIEW BOOKING H-1 (BESOK)';
-     subtitle.style.color = '#fde047'; 
+     btn.style.background = '#3b82f6'; btn.style.color = '#fff';
+     subtitle.innerHTML = 'PREVIEW BOOKING H-1 (BESOK)'; subtitle.style.color = '#fde047'; 
      tbody.innerHTML = '<tr><td colspan="7" class="empty">⏳ Memuat data besok...</td></tr>';
   } else {
      btn.innerHTML = '📅 Preview Besok';
-     btn.style.background = '#f59e0b'; 
-     btn.style.color = '#111';
-     subtitle.innerHTML = 'APPOINTMENT CONTROL BOARD';
-     subtitle.style.color = 'inherit';
+     btn.style.background = '#f59e0b'; btn.style.color = '#111';
+     subtitle.innerHTML = 'APPOINTMENT CONTROL BOARD'; subtitle.style.color = 'inherit';
      tbody.innerHTML = '<tr><td colspan="7" class="empty">⏳ Memuat data hari ini...</td></tr>';
      lastIds = []; 
   }
@@ -303,12 +293,15 @@ function toggleBesok() {
   exactScroll = 0;
   const el = document.getElementById('tableScroll');
   if(el) el.scrollTop = 0;
-  loadData();
+  
+  loadData(); // Langsung panggil data baru
 }
 
 function loadData(){
+  fetchCounter++; // Naikkan nomor antrean request
+  let currentRequest = fetchCounter; // Kunci nomor antrean saat ini
+
   let fetchUrl = scriptUrl + '?action=data_tv';
-  
   if(isViewingBesok) {
      fetchUrl = scriptUrl + '?action=data_tv_besok&date=' + getBesokKey();
   }
@@ -316,8 +309,10 @@ function loadData(){
   fetch(fetchUrl, { method: 'GET', redirect: 'follow' })
     .then(response => response.json())
     .then(res => {
+      // CEK KEAMANAN: Jika ada request baru yang masuk saat ini sedang diproses, buang data lama ini!
+      if (currentRequest !== fetchCounter) return; 
+
       if(!res) return;
-      
       const list = res.data || res || [];
       
       document.getElementById('total').innerText = list.length;
@@ -328,19 +323,13 @@ function loadData(){
       document.getElementById('selesai').innerText = list.filter(r => String(r.status).toUpperCase() === 'SELESAI').length;
       document.getElementById('closed').innerText = list.filter(r => String(r.status).toUpperCase() === 'CLOSED').length;
 
-      const tbody = document.getElementById('tbody');
-      tbody.innerHTML='';
-
-      let ids = [];
-      let run = [];
+      const tbody = document.getElementById('tbody'); tbody.innerHTML='';
+      let ids = []; let run = [];
 
       if(!list.length){
         tbody.innerHTML = '<tr><td colspan="7" class="empty">Belum ada appointment ' + (isViewingBesok ? 'untuk besok.' : 'hari ini.') + '</td></tr>';
-        if(!isViewingBesok) {
-            document.getElementById('runningTrack').innerHTML = '<span>Belum ada appointment hari ini</span><span>Belum ada appointment hari ini</span>';
-        } else {
-            document.getElementById('runningTrack').innerHTML = '<span style="color:#fde047">Mode Preview H-1 Aktif</span><span style="color:#fde047">Mode Preview H-1 Aktif</span>';
-        }
+        if(!isViewingBesok) { document.getElementById('runningTrack').innerHTML = '<span>Belum ada appointment hari ini</span><span>Belum ada appointment hari ini</span>'; } 
+        else { document.getElementById('runningTrack').innerHTML = '<span style="color:#fde047">Mode Preview H-1 Aktif</span><span style="color:#fde047">Mode Preview H-1 Aktif</span>'; }
         return;
       }
 
@@ -349,9 +338,7 @@ function loadData(){
         const id = (r.id || '') + r.nama + r.jam;
         ids.push(id);
 
-        if(!['CANCEL', 'NO SHOW', 'SELESAI', 'CLOSED'].includes(rawStatus)){
-            run.push(esc(r.nama) + ' (' + esc(r.nopol) + ') - ' + esc(r.jam));
-        }
+        if(!['CANCEL', 'NO SHOW', 'SELESAI', 'CLOSED'].includes(rawStatus)){ run.push(esc(r.nama) + ' (' + esc(r.nopol) + ') - ' + esc(r.jam)); }
 
         const cls = rawStatus.replace(/\s+/g,'.');
         const isBatal = ['CANCEL', 'NO SHOW'].includes(rawStatus);
@@ -360,14 +347,9 @@ function loadData(){
 
         tbody.innerHTML +=
           '<tr class="' + newRowStyle + '" style="' + opacityStyle + '">' +
-          '<td>' + esc(r.jam) + '</td>' +
-          '<td>' + esc(r.nama) + '</td>' +
-          '<td>' + esc(r.nopol) + '</td>' +
-          '<td>' + esc(r.model) + '</td>' +
-          '<td>' + esc(r.sa) + '</td>' +
-          '<td><span class="jenis">' + esc(r.jenis) + '</span></td>' +
-          '<td><span class="status ' + esc(cls) + '">' + esc(r.status) + '</span></td>' +
-          '</tr>';
+          '<td>' + esc(r.jam) + '</td><td>' + esc(r.nama) + '</td><td>' + esc(r.nopol) + '</td><td>' + esc(r.model) + '</td>' +
+          '<td>' + esc(r.sa) + '</td><td><span class="jenis">' + esc(r.jenis) + '</span></td>' +
+          '<td><span class="status ' + esc(cls) + '">' + esc(r.status) + '</span></td></tr>';
       });
 
       if(!isViewingBesok) {
@@ -377,25 +359,15 @@ function loadData(){
       } else {
          document.getElementById('runningTrack').innerHTML = '<span style="color:#fde047">🛠️ MODE PREVIEW H-1 (BESOK) AKTIF 🛠️</span><span style="color:#fde047">🛠️ MODE PREVIEW H-1 (BESOK) AKTIF 🛠️</span>';
       }
-    })
-    .catch(err => console.error('Gagal mengambil data:', err));
+    }).catch(err => console.error('Gagal mengambil data:', err));
 }
 
 // ENGINE AUTOMATIC & MANUAL SMART SCROLL
-let isPaused = false;
-let scrollDirection = "down";
-let exactScroll = 0; 
-let touchTimeout = null;
+let isPaused = false; let scrollDirection = "down"; let exactScroll = 0; let touchTimeout = null;
 
 function pauseScrollForManual() {
-  isPaused = true; 
-  clearTimeout(touchTimeout);
-  
-  touchTimeout = setTimeout(() => {
-    isPaused = false;
-    const el = document.getElementById('tableScroll');
-    if (el) exactScroll = el.scrollTop; 
-  }, 4000); 
+  isPaused = true; clearTimeout(touchTimeout);
+  touchTimeout = setTimeout(() => { isPaused = false; const el = document.getElementById('tableScroll'); if (el) exactScroll = el.scrollTop; }, 4000); 
 }
 
 function autoScrollLoop(){
@@ -405,18 +377,12 @@ function autoScrollLoop(){
       const max = el.scrollHeight - el.clientHeight;
       if(max > 0) {
         if (el.scrollTop === 0 && exactScroll > 1) exactScroll = 0;
-        
         if (scrollDirection === "down") {
-          exactScroll += 0.3; 
-          el.scrollTop = exactScroll; 
-          if(el.scrollTop >= max - 2){ 
-            isPaused = true; scrollDirection = "up"; setTimeout(() => { isPaused = false; }, 1500); 
-          }
+          exactScroll += 0.3; el.scrollTop = exactScroll; 
+          if(el.scrollTop >= max - 2){ isPaused = true; scrollDirection = "up"; setTimeout(() => { isPaused = false; }, 1500); }
         } else if (scrollDirection === "up") {
           exactScroll -= 4; el.scrollTop = exactScroll; 
-          if(el.scrollTop <= 0) {
-            exactScroll = 0; el.scrollTop = 0; isPaused = true; scrollDirection = "down"; setTimeout(() => { isPaused = false; }, 3000); 
-          }
+          if(el.scrollTop <= 0) { exactScroll = 0; el.scrollTop = 0; isPaused = true; scrollDirection = "down"; setTimeout(() => { isPaused = false; }, 3000); }
         }
       }
     }
@@ -431,7 +397,6 @@ if (tableEl) {
   tableEl.addEventListener('wheel', pauseScrollForManual, {passive: true});
 }
 
-// Inisialisasi awal saat halaman dimuat
 applyRotation();
 setInterval(updateClock,1000);
 setInterval(loadData,15000);
