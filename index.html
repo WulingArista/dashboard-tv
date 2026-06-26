@@ -202,6 +202,7 @@ tbody tr:hover { background-color: rgba(255, 255, 255, 0.15); }
 </div>
 
 <script>
+<script>
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('sw.js').catch(err => console.error(err));
 }
@@ -238,11 +239,16 @@ function rotateScreen() {
 window.addEventListener('resize', applyRotation);
 
 // ==============================================
-// SISTEM DATA & LOGIC TV
+// SISTEM DATA & LOGIC TV (MEMORI INSTAN)
 // ==============================================
 let lastIds = [];
 let isViewingBesok = false; 
-let fetchCounter = 0; // KUNCI UTAMA ANTI-TABRAKAN DATA
+let fetchCounter = 0; 
+
+// MENYIMPAN DATA DI RAM AGAR KLIK JADI INSTAN
+let memoriHariIni = [];
+let memoriBesok = [];
+
 const scriptUrl = 'https://script.google.com/macros/s/AKfycbwQsPc_NAorLHptiN_v7NSID0IDl6qUwpS_N0a7Ld5xFCxVRfj0c8qZ_FByB3rqibzcCg/exec'; 
 
 function esc(v){ return String(v==null?'':v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;'); }
@@ -258,108 +264,100 @@ function getBesokKey(){
   return y + '-' + m + '-' + dd; 
 }
 
-// Fungsi untuk mengosongkan angka kartu saat Loading
-function resetCards() {
-  document.getElementById('total').innerText = '...';
-  document.getElementById('cancel').innerText = '...';
-  document.getElementById('noshow').innerText = '...';
-  document.getElementById('checkin').innerText = '...';
-  document.getElementById('proses').innerText = '...';
-  document.getElementById('selesai').innerText = '...';
-  document.getElementById('closed').innerText = '...';
-}
-
 function toggleBesok() {
   isViewingBesok = !isViewingBesok;
   const btn = document.getElementById('btnBesok');
   const subtitle = document.getElementById('tvSubtitle');
-  const tbody = document.getElementById('tbody');
   
-  resetCards(); // Langsung kosongkan kartu saat diklik
-
   if (isViewingBesok) {
      btn.innerHTML = '⬅️ Kembali ke Hari Ini';
      btn.style.background = '#3b82f6'; btn.style.color = '#fff';
      subtitle.innerHTML = 'PREVIEW BOOKING H-1 (BESOK)'; subtitle.style.color = '#fde047'; 
-     tbody.innerHTML = '<tr><td colspan="7" class="empty">⏳ Memuat data besok...</td></tr>';
   } else {
      btn.innerHTML = '📅 Preview Besok';
      btn.style.background = '#f59e0b'; btn.style.color = '#111';
      subtitle.innerHTML = 'APPOINTMENT CONTROL BOARD'; subtitle.style.color = 'inherit';
-     tbody.innerHTML = '<tr><td colspan="7" class="empty">⏳ Memuat data hari ini...</td></tr>';
-     lastIds = []; 
   }
   
   exactScroll = 0;
   const el = document.getElementById('tableScroll');
   if(el) el.scrollTop = 0;
   
-  loadData(); // Langsung panggil data baru
+  // LANGSUNG TAMPILKAN DARI MEMORI TANPA LOADING!
+  renderLayar();
 }
 
-function loadData(){
-  fetchCounter++; // Naikkan nomor antrean request
-  let currentRequest = fetchCounter; // Kunci nomor antrean saat ini
+function loadData() {
+  fetchCounter++;
+  let currentReq = fetchCounter;
 
-  let fetchUrl = scriptUrl + '?action=data_tv';
-  if(isViewingBesok) {
-     fetchUrl = scriptUrl + '?action=data_tv_besok&date=' + getBesokKey();
+  const urlHariIni = scriptUrl + '?action=data_tv';
+  const urlBesok = scriptUrl + '?action=data_tv_besok&date=' + getBesokKey();
+
+  // Menarik 2 data sekaligus di belakang layar
+  Promise.all([
+    fetch(urlHariIni).then(r => r.json()),
+    fetch(urlBesok).then(r => r.json())
+  ]).then(([resHariIni, resBesok]) => {
+    // Abaikan jika ini adalah data lama yang terlambat datang
+    if (currentReq !== fetchCounter) return;
+
+    memoriHariIni = resHariIni.data || resHariIni || [];
+    memoriBesok = resBesok.data || resBesok || [];
+
+    // Perbarui layar dengan data terbaru yang didapat
+    renderLayar();
+  }).catch(err => console.error('Gagal mengambil data:', err));
+}
+
+function renderLayar() {
+  // Pilih memori mana yang sedang ingin dilihat
+  const list = isViewingBesok ? memoriBesok : memoriHariIni;
+
+  document.getElementById('total').innerText = list.length;
+  document.getElementById('cancel').innerText = list.filter(r => String(r.status).toUpperCase() === 'CANCEL').length;
+  document.getElementById('noshow').innerText = list.filter(r => String(r.status).toUpperCase() === 'NO SHOW').length;
+  document.getElementById('checkin').innerText = list.filter(r => String(r.status).toUpperCase() === 'CHECK IN').length;
+  document.getElementById('proses').innerText = list.filter(r => String(r.status).toUpperCase() === 'PROSES').length;
+  document.getElementById('selesai').innerText = list.filter(r => String(r.status).toUpperCase() === 'SELESAI').length;
+  document.getElementById('closed').innerText = list.filter(r => String(r.status).toUpperCase() === 'CLOSED').length;
+
+  const tbody = document.getElementById('tbody'); tbody.innerHTML='';
+  let ids = []; let run = [];
+
+  if(!list.length){
+    tbody.innerHTML = '<tr><td colspan="7" class="empty">Belum ada appointment ' + (isViewingBesok ? 'untuk besok.' : 'hari ini.') + '</td></tr>';
+    if(!isViewingBesok) { document.getElementById('runningTrack').innerHTML = '<span>Belum ada appointment hari ini</span><span>Belum ada appointment hari ini</span>'; } 
+    else { document.getElementById('runningTrack').innerHTML = '<span style="color:#fde047">Mode Preview H-1 Aktif</span><span style="color:#fde047">Mode Preview H-1 Aktif</span>'; }
+    return;
   }
 
-  fetch(fetchUrl, { method: 'GET', redirect: 'follow' })
-    .then(response => response.json())
-    .then(res => {
-      // CEK KEAMANAN: Jika ada request baru yang masuk saat ini sedang diproses, buang data lama ini!
-      if (currentRequest !== fetchCounter) return; 
+  list.forEach(r=>{
+    const rawStatus = String(r.status || '').toUpperCase();
+    const id = (r.id || '') + r.nama + r.jam;
+    ids.push(id);
 
-      if(!res) return;
-      const list = res.data || res || [];
-      
-      document.getElementById('total').innerText = list.length;
-      document.getElementById('cancel').innerText = list.filter(r => String(r.status).toUpperCase() === 'CANCEL').length;
-      document.getElementById('noshow').innerText = list.filter(r => String(r.status).toUpperCase() === 'NO SHOW').length;
-      document.getElementById('checkin').innerText = list.filter(r => String(r.status).toUpperCase() === 'CHECK IN').length;
-      document.getElementById('proses').innerText = list.filter(r => String(r.status).toUpperCase() === 'PROSES').length;
-      document.getElementById('selesai').innerText = list.filter(r => String(r.status).toUpperCase() === 'SELESAI').length;
-      document.getElementById('closed').innerText = list.filter(r => String(r.status).toUpperCase() === 'CLOSED').length;
+    if(!['CANCEL', 'NO SHOW', 'SELESAI', 'CLOSED'].includes(rawStatus)){ run.push(esc(r.nama) + ' (' + esc(r.nopol) + ') - ' + esc(r.jam)); }
 
-      const tbody = document.getElementById('tbody'); tbody.innerHTML='';
-      let ids = []; let run = [];
+    const cls = rawStatus.replace(/\s+/g,'.');
+    const isBatal = ['CANCEL', 'NO SHOW'].includes(rawStatus);
+    const opacityStyle = isBatal ? 'opacity: 0.4;' : '';
+    const newRowStyle = (!isViewingBesok && !lastIds.includes(id)) ? 'newRow' : '';
 
-      if(!list.length){
-        tbody.innerHTML = '<tr><td colspan="7" class="empty">Belum ada appointment ' + (isViewingBesok ? 'untuk besok.' : 'hari ini.') + '</td></tr>';
-        if(!isViewingBesok) { document.getElementById('runningTrack').innerHTML = '<span>Belum ada appointment hari ini</span><span>Belum ada appointment hari ini</span>'; } 
-        else { document.getElementById('runningTrack').innerHTML = '<span style="color:#fde047">Mode Preview H-1 Aktif</span><span style="color:#fde047">Mode Preview H-1 Aktif</span>'; }
-        return;
-      }
+    tbody.innerHTML +=
+      '<tr class="' + newRowStyle + '" style="' + opacityStyle + '">' +
+      '<td>' + esc(r.jam) + '</td><td>' + esc(r.nama) + '</td><td>' + esc(r.nopol) + '</td><td>' + esc(r.model) + '</td>' +
+      '<td>' + esc(r.sa) + '</td><td><span class="jenis">' + esc(r.jenis) + '</span></td>' +
+      '<td><span class="status ' + esc(cls) + '">' + esc(r.status) + '</span></td></tr>';
+  });
 
-      list.forEach(r=>{
-        const rawStatus = String(r.status || '').toUpperCase();
-        const id = (r.id || '') + r.nama + r.jam;
-        ids.push(id);
-
-        if(!['CANCEL', 'NO SHOW', 'SELESAI', 'CLOSED'].includes(rawStatus)){ run.push(esc(r.nama) + ' (' + esc(r.nopol) + ') - ' + esc(r.jam)); }
-
-        const cls = rawStatus.replace(/\s+/g,'.');
-        const isBatal = ['CANCEL', 'NO SHOW'].includes(rawStatus);
-        const opacityStyle = isBatal ? 'opacity: 0.4;' : '';
-        const newRowStyle = (!isViewingBesok && !lastIds.includes(id)) ? 'newRow' : '';
-
-        tbody.innerHTML +=
-          '<tr class="' + newRowStyle + '" style="' + opacityStyle + '">' +
-          '<td>' + esc(r.jam) + '</td><td>' + esc(r.nama) + '</td><td>' + esc(r.nopol) + '</td><td>' + esc(r.model) + '</td>' +
-          '<td>' + esc(r.sa) + '</td><td><span class="jenis">' + esc(r.jenis) + '</span></td>' +
-          '<td><span class="status ' + esc(cls) + '">' + esc(r.status) + '</span></td></tr>';
-      });
-
-      if(!isViewingBesok) {
-         const text = run.length > 0 ? run.join('  •  ') : 'Semua kendaraan selesai diproses atau dibatalkan.';
-         document.getElementById('runningTrack').innerHTML = '<span>' + text + '</span><span>' + text + '</span>';
-         lastIds = ids;
-      } else {
-         document.getElementById('runningTrack').innerHTML = '<span style="color:#fde047">🛠️ MODE PREVIEW H-1 (BESOK) AKTIF 🛠️</span><span style="color:#fde047">🛠️ MODE PREVIEW H-1 (BESOK) AKTIF 🛠️</span>';
-      }
-    }).catch(err => console.error('Gagal mengambil data:', err));
+  if(!isViewingBesok) {
+     const text = run.length > 0 ? run.join('  •  ') : 'Semua kendaraan selesai diproses atau dibatalkan.';
+     document.getElementById('runningTrack').innerHTML = '<span>' + text + '</span><span>' + text + '</span>';
+     lastIds = ids;
+  } else {
+     document.getElementById('runningTrack').innerHTML = '<span style="color:#fde047">🛠️ MODE PREVIEW H-1 (BESOK) AKTIF 🛠️</span><span style="color:#fde047">🛠️ MODE PREVIEW H-1 (BESOK) AKTIF 🛠️</span>';
+  }
 }
 
 // ENGINE AUTOMATIC & MANUAL SMART SCROLL
@@ -399,11 +397,12 @@ if (tableEl) {
 
 applyRotation();
 setInterval(updateClock,1000);
-setInterval(loadData,15000);
+setInterval(loadData,15000); // Otomatis refresh data di memori setiap 15 detik
 requestAnimationFrame(autoScrollLoop);
 
 updateClock();
-loadData();
+loadData(); // Memulai tarikan data pertama
+</script>
 </script>
 </body>
 </html>
