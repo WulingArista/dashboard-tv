@@ -290,15 +290,24 @@ function loadData() {
   fetchCounter++;
   let currentReq = fetchCounter;
 
-  // HANYA MEMANGGIL SATU URL UNTUK SEMUA DATA
   const urlAll = scriptUrl + '?action=get_tv_all';
 
-  fetch(urlAll)
-    .then(r => r.json())
+  // WAJIB ADA { method: 'GET', redirect: 'follow' } UNTUK GOOGLE APPS SCRIPT
+  fetch(urlAll, { method: 'GET', redirect: 'follow' })
+    .then(r => r.text()) 
+    .then(text => {
+      try {
+        // Coba jadikan JSON
+        return JSON.parse(text);
+      } catch(e) {
+        // Jika gagal (biasanya karena belum Deploy versi baru), tampilkan peringatan
+        console.error("Gagal membaca JSON. Sepertinya Google Apps Script belum di-Deploy Versi Baru!");
+        throw new Error("Respon bukan JSON");
+      }
+    })
     .then(res => {
       if (currentReq !== fetchCounter) return;
 
-      // Langsung pecah datanya ke memori
       memoriHariIni = res.hariIni || [];
       memoriBesok = res.besok || [];
 
@@ -306,8 +315,7 @@ function loadData() {
       renderLayar();
     })
     .catch(err => {
-      console.error('Gagal mengambil data:', err);
-      // Jika gagal, coba lagi dalam 5 detik
+      console.error('Data gagal dimuat, mencoba lagi...', err);
       setTimeout(loadData, 5000);
     });
 }
