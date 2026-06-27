@@ -290,23 +290,26 @@ function loadData() {
   fetchCounter++;
   let currentReq = fetchCounter;
 
-  const urlHariIni = scriptUrl + '?action=data_tv';
-  const urlBesok = scriptUrl + '?action=data_tv_besok&date=' + getBesokKey();
+  // HANYA MEMANGGIL SATU URL UNTUK SEMUA DATA
+  const urlAll = scriptUrl + '?action=get_tv_all';
 
-  // Menarik 2 data sekaligus di belakang layar
-  Promise.all([
-    fetch(urlHariIni).then(r => r.json()),
-    fetch(urlBesok).then(r => r.json())
-  ]).then(([resHariIni, resBesok]) => {
-    // Abaikan jika ini adalah data lama yang terlambat datang
-    if (currentReq !== fetchCounter) return;
+  fetch(urlAll)
+    .then(r => r.json())
+    .then(res => {
+      if (currentReq !== fetchCounter) return;
 
-    memoriHariIni = resHariIni.data || resHariIni || [];
-    memoriBesok = resBesok.data || resBesok || [];
+      // Langsung pecah datanya ke memori
+      memoriHariIni = res.hariIni || [];
+      memoriBesok = res.besok || [];
 
-    // Perbarui layar dengan data terbaru yang didapat
-    renderLayar();
-  }).catch(err => console.error('Gagal mengambil data:', err));
+      console.log("Data Berhasil Dimuat Sekaligus!");
+      renderLayar();
+    })
+    .catch(err => {
+      console.error('Gagal mengambil data:', err);
+      // Jika gagal, coba lagi dalam 5 detik
+      setTimeout(loadData, 5000);
+    });
 }
 
 function renderLayar() {
