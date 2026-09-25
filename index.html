@@ -157,7 +157,7 @@ tbody tr:hover { background-color: rgba(255, 255, 255, 0.15); }
   <div class="header">
     <div class="headerLeft">
       <div>
-        <img class="logoWuling" id="logoWuling" src="logo-header.png" alt="Wuling" onclick="handleLogoTap()" style="cursor:pointer;">
+        <img class="logoWuling" id="logoWuling" src="logo-header.png" alt="Wuling">
       </div>
       <div>
         <div class="title">WULING ARISTA LAMPUNG</div>
@@ -198,6 +198,11 @@ tbody tr:hover { background-color: rgba(255, 255, 255, 0.15); }
   </div>
 
     <div class="marquee"><div class="track" id="runningTrack"></div></div>
+    <div onclick="bukaMusikOverlay()" style="position:fixed; bottom:0; right:0; width:60px; height:40px; z-index:99999; cursor:pointer; opacity:0;"></div>
+
+</div>
+
+</div>
 
 </div>
 
@@ -243,28 +248,8 @@ function rotateScreen() {
 }
 window.addEventListener('resize', applyRotation);
 
-// ============================================================
-// FITUR TERSEMBUNYI: YOUTUBE MUSIC BACKGROUND PLAYER
-// Trigger: tap logo Wuling 5x berturut-turut dalam 3 detik
-// Ganti YT_SEED_VIDEO_ID dengan ID video YouTube favorit —
-// sistem otomatis lanjut ke lagu berikutnya sesuai rekomendasi
-// YouTube (mode Radio).
-// ============================================================
 const YT_SEED_VIDEO_ID = 'jfKfPfyJRdk'; // ganti sesuai selera
 let ytMusicStarted = false;
-let logoTapCount = 0;
-let logoTapTimer = null;
-
-function handleLogoTap() {
-  const now = Date.now();
-  if (!logoTapTimer || now - logoTapTimer > 3000) { logoTapCount = 0; }
-  logoTapTimer = now;
-  logoTapCount++;
-  if (logoTapCount >= 5) {
-    logoTapCount = 0;
-    bukaMusikOverlay();
-  }
-}
 
 function bukaMusikOverlay() {
   const overlay = document.getElementById('ytOverlay');
