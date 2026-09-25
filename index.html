@@ -157,7 +157,7 @@ tbody tr:hover { background-color: rgba(255, 255, 255, 0.15); }
   <div class="header">
     <div class="headerLeft">
       <div>
-        <img class="logoWuling" id="logoWuling" src="logo-header.png" alt="Wuling">
+        <img class="logoWuling" id="logoWuling" src="logo-header.png" alt="Wuling" onclick="handleLogoTap()" style="cursor:pointer;">
       </div>
       <div>
         <div class="title">WULING ARISTA LAMPUNG</div>
@@ -197,8 +197,14 @@ tbody tr:hover { background-color: rgba(255, 255, 255, 0.15); }
   </div>
   </div>
 
-  <div class="marquee"><div class="track" id="runningTrack"></div></div>
+    <div class="marquee"><div class="track" id="runningTrack"></div></div>
 
+</div>
+
+<!-- Fitur tersembunyi: YouTube Music player -->
+<div id="ytOverlay" style="display:none; position:fixed; inset:0; background:#000; z-index:999999; flex-direction:column;">
+  <iframe id="ytFrame" style="width:100%; height:100%; border:0; flex:1;" src="" allow="autoplay; encrypted-media" allowfullscreen></iframe>
+  <button onclick="kembaliDashboardDariMusik()" style="position:fixed; top:20px; right:20px; background:#d71920; color:white; border:0; padding:14px 22px; border-radius:12px; font-weight:900; font-size:15px; cursor:pointer; z-index:2; box-shadow:0 8px 20px rgba(0,0,0,.4);">⬅️ Kembali ke Dashboard</button>
 </div>
 
 <script>
@@ -236,6 +242,44 @@ function rotateScreen() {
   applyRotation();
 }
 window.addEventListener('resize', applyRotation);
+
+// ============================================================
+// FITUR TERSEMBUNYI: YOUTUBE MUSIC BACKGROUND PLAYER
+// Trigger: tap logo Wuling 5x berturut-turut dalam 3 detik
+// Ganti YT_SEED_VIDEO_ID dengan ID video YouTube favorit —
+// sistem otomatis lanjut ke lagu berikutnya sesuai rekomendasi
+// YouTube (mode Radio).
+// ============================================================
+const YT_SEED_VIDEO_ID = 'jfKfPfyJRdk'; // ganti sesuai selera
+let ytMusicStarted = false;
+let logoTapCount = 0;
+let logoTapTimer = null;
+
+function handleLogoTap() {
+  const now = Date.now();
+  if (!logoTapTimer || now - logoTapTimer > 3000) { logoTapCount = 0; }
+  logoTapTimer = now;
+  logoTapCount++;
+  if (logoTapCount >= 5) {
+    logoTapCount = 0;
+    bukaMusikOverlay();
+  }
+}
+
+function bukaMusikOverlay() {
+  const overlay = document.getElementById('ytOverlay');
+  const frame = document.getElementById('ytFrame');
+  if (!ytMusicStarted) {
+    frame.src = 'https://www.youtube.com/embed/' + YT_SEED_VIDEO_ID +
+      '?autoplay=1&controls=1&rel=0';
+    ytMusicStarted = true;
+  }
+  overlay.style.display = 'flex';
+}
+
+function kembaliDashboardDariMusik() {
+  document.getElementById('ytOverlay').style.display = 'none';
+}
 
 // ==============================================
 // SISTEM DATA & LOGIC TV (MEMORI INSTAN)
